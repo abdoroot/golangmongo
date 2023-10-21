@@ -11,7 +11,17 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Storage struct {
+type Storage interface {
+	InsertOne() (any, error)
+	InsertMany() ([]any, error)
+	updateOne() (any, error)
+	updateMany() (any, error)
+	deleteOne(string) (any, error)
+	deleteMany() (any, error)
+	find() ([]Fact, error)
+}
+
+type Mongodb struct {
 	Client *mongo.Client
 }
 
@@ -20,17 +30,17 @@ type Fact struct {
 	Length int64
 }
 
-func NewStorage() (*Storage, error) {
+func NewStorage() (Storage, error) {
 	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
 		return nil, err
 	}
-	return &Storage{
+	return &Mongodb{
 		Client: client,
 	}, nil
 }
 
-func (s *Storage) InsertOne() (any, error) {
+func (s *Mongodb) InsertOne() (any, error) {
 	coll := s.Client.Database("catfact").Collection("facts")
 	result, err := coll.InsertOne(context.TODO(), Fact{"test fact", 8})
 	if err != nil {
@@ -40,7 +50,7 @@ func (s *Storage) InsertOne() (any, error) {
 	return result.InsertedID, nil
 }
 
-func (s *Storage) InsertMany() ([]any, error) {
+func (s *Mongodb) InsertMany() ([]any, error) {
 
 	coll := s.Client.Database("catfact").Collection("facts")
 	factList := []any{
@@ -55,7 +65,7 @@ func (s *Storage) InsertMany() ([]any, error) {
 	return result.InsertedIDs, nil
 }
 
-func (s *Storage) updateOne() (any, error) {
+func (s *Mongodb) updateOne() (any, error) {
 	coll := s.Client.Database("catfact").Collection("facts")
 	result, err := coll.UpdateOne(context.TODO(), bson.M{"fact": "test face updated 2"}, bson.M{
 		"$set": bson.M{"fact": "test face updated 3"},
@@ -66,7 +76,7 @@ func (s *Storage) updateOne() (any, error) {
 	return result.ModifiedCount, nil
 }
 
-func (s *Storage) updateMany() (any, error) {
+func (s *Mongodb) updateMany() (any, error) {
 	coll := s.Client.Database("catfact").Collection("facts")
 	result, err := coll.UpdateMany(context.TODO(), bson.M{"length": bson.M{"$lte": 10}}, bson.M{
 		"$set": bson.M{"fact": "test face one title for secound time"},
@@ -77,7 +87,7 @@ func (s *Storage) updateMany() (any, error) {
 	return result.ModifiedCount, nil
 }
 
-func (s *Storage) deleteOne(id string) (any, error) {
+func (s *Mongodb) deleteOne(id string) (any, error) {
 	OID, err := primitive.ObjectIDFromHex(id) //convert id to ObjectID(id)
 	coll := s.Client.Database("catfact").Collection("facts")
 	result, err := coll.DeleteOne(context.TODO(), bson.M{"_id": OID})
@@ -87,7 +97,7 @@ func (s *Storage) deleteOne(id string) (any, error) {
 	return result.DeletedCount, nil
 }
 
-func (s *Storage) deleteMany() (any, error) {
+func (s *Mongodb) deleteMany() (any, error) {
 	coll := s.Client.Database("catfact").Collection("facts")
 	result, err := coll.DeleteMany(context.TODO(), bson.M{"length": bson.M{
 		"$lte": 10,
@@ -98,7 +108,7 @@ func (s *Storage) deleteMany() (any, error) {
 	return result.DeletedCount, nil
 }
 
-func (s *Storage) find() ([]Fact, error) {
+func (s *Mongodb) find() ([]Fact, error) {
 	Facts := []Fact{}
 	coll := s.Client.Database("catfact").Collection("facts")
 	//filter := bson.M{"$text": bson.M{"$search": "diesl"}} //search { $text: { $search: "coffee shop" }// it fails beacuse theere is no text index
@@ -159,10 +169,10 @@ func main() {
 	// }
 	// fmt.Printf("%v is number of deleted docs\n", DeletedCount)
 
-	Facs, err := s.find()
+	facs, err := s.find()
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(Facs)
+	fmt.Println(facs)
 
 }
